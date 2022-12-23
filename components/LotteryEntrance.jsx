@@ -14,7 +14,11 @@ export default function LotteryEntrance() {
 
 	const dispatch = useNotification()
 
-	const { runContractFunction: enterLottery } = useWeb3Contract({
+	const {
+		runContractFunction: enterLottery,
+		isFetching,
+		isLoading,
+	} = useWeb3Contract({
 		abi: abi,
 		contractAddress: lotteryAddress,
 		functionName: "enterLottery",
@@ -43,24 +47,31 @@ export default function LotteryEntrance() {
 		params: {},
 	})
 
+	async function updateUI() {
+		const entranceFeeFromContract = (await getEntranceFee()).toString()
+		const numPlayersFromContract = (await getNumPlayers()).toString()
+		const recentWinnerFromContract = (await getRecentWinner()).toString()
+
+		setEntranceFee(entranceFeeFromContract)
+		setNumPlayers(numPlayersFromContract)
+		setRecentWinner(recentWinnerFromContract)
+	}
+
 	useEffect(() => {
 		if (isWeb3Enabled) {
-			async function updateUI() {
-				const entranceFeeFromContract = (await getEntranceFee()).toString()
-				const numPlayersFromContract = (await getNumPlayers()).toString()
-				const recentWinnerFromContract = (await getRecentWinner()).toString()
-
-				setEntranceFee(entranceFeeFromContract)
-				setNumPlayers(numPlayersFromContract)
-				setRecentWinner(recentWinnerFromContract)
-			}
 			updateUI()
 		}
 	}, [isWeb3Enabled])
 
 	const handleSuccess = async function (tx) {
-		await tx.wait(1)
+		const txReceipt = await tx.wait(1)
+
+		txReceipt.events[0].args
+		console.log("§§§§§§§§§§§§§§§--------")
+		console.log(txReceipt.events)
+
 		handleNotification()
+		updateUI()
 	}
 
 	const handleNotification = function () {
@@ -73,31 +84,41 @@ export default function LotteryEntrance() {
 		})
 	}
 
-	return lotteryAddress ? (
-		<div>
-			<br />
-			Welcome to the Lottery !
-			<br />
-			<br />
-			<button
-				onClick={async function () {
-					await enterLottery({
-						onSuccess: handleSuccess,
-						onError: (error) => console.log(error),
-					})
-				}}
-			>
-				Enter the Lottery
-			</button>
-			<br />
-			<br />
-			Entrance fee: {ethers.utils.formatUnits(entranceFee, "ether")} ETH
-			<br />
-			Number of players: {numPlayers}
-			<br />
-			Recent Winner: {recentWinner}
+	return (
+		<div className="p-5">
+			{lotteryAddress ? (
+				<div>
+					<br />
+					Welcome to the Lottery !
+					<br />
+					<br />
+					<button
+						className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ml-auto"
+						onClick={async function () {
+							await enterLottery({
+								onSuccess: handleSuccess,
+								onError: (error) => console.log(error),
+							})
+						}}
+						disabled={isFetching || isLoading}
+					>
+						{isLoading || isFetching ? (
+							<div className="animate-spin spinner-border h-8 w-8 border-b-2 rounded-full"></div>
+						) : (
+							"Enter the Lottery"
+						)}
+					</button>
+					<br />
+					<br />
+					Entrance fee: {ethers.utils.formatUnits(entranceFee, "ether")} ETH
+					<br />
+					Number of players: {numPlayers}
+					<br />
+					Recent Winner: {recentWinner}
+				</div>
+			) : (
+				<div>No Lottery contract address has been detected !</div>
+			)}
 		</div>
-	) : (
-		<div>No Lottery contract address has been detected !</div>
 	)
 }
